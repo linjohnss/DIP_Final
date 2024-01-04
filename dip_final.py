@@ -28,7 +28,7 @@ def segment_image(image_path, mask_path, test_num, prompts=["water"]):
         size=(image.size[1], image.size[0]),
         mode="bilinear"
     )
-
+    
     visualize_results(image, preds, prompts, test_num)
     iou_score =  calculate_and_visualize_iou(image, mask, preds, test_num)
     return iou_score
@@ -50,7 +50,12 @@ def visualize_results(image, preds, prompts, test_num):
 def calculate_and_visualize_iou(image, mask, preds, test_num):
     threshold = 0.5
     flat_preds = torch.sigmoid(preds.squeeze()).reshape((preds.shape[0], -1))
-
+    # save the CLIP confidence map
+    np_preds = flat_preds.view(preds.shape[2], preds.shape[3]).cpu().numpy()
+    np_preds = (np_preds * 255).astype(np.uint8)
+    image = Image.fromarray(np_preds)
+    image.save(f'output/{test_num}_clip_confidence.png')
+    
     # Initialize a dummy "unlabeled" mask with the threshold
     flat_preds_with_treshold = torch.full((preds.shape[0] + 1, flat_preds.shape[-1]), threshold)
     flat_preds_with_treshold[1:preds.shape[0]+1,:] = flat_preds
@@ -71,6 +76,10 @@ def calculate_and_visualize_iou(image, mask, preds, test_num):
 
 
 def visualize_iou(image, mask, inds, test_num, iou_score):
+    # breakpoint()
+    pred_mask = Image.fromarray((inds.cpu().numpy() * 255).astype(np.uint8))
+    pred_mask.save(f'output/{test_num}_pred_mask.png')
+    
     fig, ax = plt.subplots(1, 3, figsize=(9, 3))
     fig.suptitle(f"iou_score: {iou_score:.2f}")
     fig.tight_layout()
