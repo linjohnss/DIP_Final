@@ -9,11 +9,13 @@ model = CLIPSegForImageSegmentation.from_pretrained("CIDAS/clipseg-rd64-refined"
 processor = CLIPSegProcessor.from_pretrained("CIDAS/clipseg-rd64-refined")
 
 
-def segment_image(image_path, mask_path, test_num, prompts=["water"]):
+def segment_image(image_path, mask_path, test_num=None, prompts=["water"], output_dir=None):
     # load the model and the processor
     
     image = Image.open(image_path)
-    mask = np.array(Image.open(mask_path))
+    mask = None
+    if(mask_path is not None):
+        mask = np.array(Image.open(mask_path))
 
     inputs = processor(text=prompts, images=[image] * len(prompts), padding="max_length", return_tensors="pt").to("cuda")
 
@@ -64,15 +66,17 @@ def calculate_and_visualize_iou(image, mask, preds, test_num):
     inds = torch.topk(flat_preds_with_treshold, 1, dim=0).indices.reshape((preds.shape[-2], preds.shape[-1]))
 
     # calculate the IoU
-    mask_tensor = torch.tensor(mask)
-    intersection = torch.logical_and(mask_tensor, inds)
-    union = torch.logical_or(mask_tensor, inds)
-    iou_score = torch.sum(intersection) / torch.sum(union)
-    print(f"{test_num}.jpg iou_score: {iou_score:.2f}")
+    iou_score = None
+    if mask is not None:
+        mask_tensor = torch.tensor(mask)
+        intersection = torch.logical_and(mask_tensor, inds)
+        union = torch.logical_or(mask_tensor, inds)
+        iou_score = torch.sum(intersection) / torch.sum(union)
+        print(f"{test_num}.jpg iou_score: {iou_score:.2f}")
 
     visualize_iou(image, mask, inds, test_num, iou_score)
-
-    return iou_score
+    if iou_score is not None:
+        return iou_score
 
 
 def visualize_iou(image, mask, inds, test_num, iou_score):
@@ -80,20 +84,25 @@ def visualize_iou(image, mask, inds, test_num, iou_score):
     pred_mask = Image.fromarray((inds.cpu().numpy() * 255).astype(np.uint8))
     pred_mask.save(f'output/{test_num}_pred_mask.png')
     
-    fig, ax = plt.subplots(1, 3, figsize=(9, 3))
-    fig.suptitle(f"iou_score: {iou_score:.2f}")
-    fig.tight_layout()
-    ax[0].imshow(image)
-    ax[0].text(0, -15, f"{test_num}.jpg")
-    ax[0].axis('off')
-    ax[1].imshow(mask)
-    ax[1].text(0, -15, "mask")
-    ax[1].axis('off')
-    ax[2].imshow(inds)
-    ax[2].text(0, -15, "predicted mask")
-    ax[2].axis('off')
-    plt.savefig(f"output/{test_num}_clip_mask.png")
-    plt.close()
+    if mask is not None:
+        fig, ax = plt.subplots(1, 3, figsize=(9, 3))
+        fig.suptitle(f"iou_score: {iou_score:.2f}")
+        fig.tight_layout()
+        ax[0].imshow(image)
+        ax[0].text(0, -15, f"{test_num}.jpg")
+        ax[0].axis('off')
+        ax[1].imshow(mask)
+        ax[1].text(0, -15, "mask")
+        ax[1].axis('off')
+        ax[2].imshow(inds)
+        ax[2].text(0, -15, "predicted mask")
+        ax[2].axis('off')
+        plt.savefig(f"output/{test_num}_clip_mask.png")
+        plt.close()
+    
+
+
+
 
 if __name__ == "__main__":
     import time
