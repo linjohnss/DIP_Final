@@ -9,7 +9,7 @@ pip install -q transformers
 ```
 ### Use fast bilatral solver in opencv
 ```
-Use fast bilatral solver in opencv
+conda install -c conda-forge opencv
 ```
 
 ## Quick start
